@@ -82,7 +82,7 @@ class MedicineDictionary(Base):
     medicines = relationship("Medicine", back_populates="medicineDictionary")
 
 
-engine = create_engine("postgresql://danya:CgfWvT6YGGY0NWqCffHY8GXsu8IcJBy5@dpg-ctlh1pt2ng1s73b75epg-a.frankfurt-postgres.render.com/medtrack_10p4", echo=True)
+engine = create_engine("postgresql://danya:t5IyUzFi4vvh8LMWubhYsF7WkmoqnpFV@dpg-d0r1nq7diees73booqng-a.frankfurt-postgres.render.com/rendermedtrack", echo=True)
 
 
 Base.metadata.create_all(bind=engine)
