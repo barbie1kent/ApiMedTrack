@@ -25,6 +25,15 @@ class UserReg(BaseModel):
 class AddMedicineNameRequest(BaseModel):
     name: str
 
+class MedicineRequest(BaseModel):
+    name: str
+    frequency: str
+    period: str
+    time: str
+    dose: str
+    storageLocation: str
+    info: str
+
 def get_db():
     db = SessionLocal()
     try:
@@ -32,14 +41,36 @@ def get_db():
     finally:
         db.close()
 
-    # добавление названия лекарства
-@app.post("/addMedicineName", status_code=status.HTTP_201_CREATED)
-async def add_medicine_name(add_medicine_name_request: AddMedicineNameRequest, db: Session = Depends(get_db)):
-    new_medicine = MedicineDictionary(name=add_medicine_name_request.name)
+# добавление лекарства
+@app.post("/addMedicine", status_code=status.HTTP_201_CREATED)
+async def add_medicine(medicine_request: MedicineRequest, db: Session = Depends(get_db)):
+    new_medicine_name = MedicineDictionary(name=medicine_request.name)
+    db.add(new_medicine_name)
+    db.commit()
+    db.refresh(new_medicine_name)
+
+    new_medicine = Medicine(
+        medicineDictionaryId=new_medicine_name.id,
+        frequency=medicine_request.frequency,
+        period=medicine_request.period,
+        time=medicine_request.time,
+        dose=medicine_request.dose,
+        storageLocation=medicine_request.storageLocation,
+        info=medicine_request.info
+    )
     db.add(new_medicine)
     db.commit()
     db.refresh(new_medicine)
     return new_medicine
+
+    # добавление названия лекарства
+@app.post("/addMedicineName", status_code=status.HTTP_201_CREATED)
+async def add_medicine_name(add_medicine_name_request: AddMedicineNameRequest, db: Session = Depends(get_db)):
+    new_medicine_name = MedicineDictionary(name=add_medicine_name_request.name)
+    db.add(new_medicine_name)
+    db.commit()
+    db.refresh(new_medicine_name)
+    return new_medicine_name
 
     # авторизация
 @app.post("/login", status_code=status.HTTP_200_OK)
