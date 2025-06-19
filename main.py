@@ -32,6 +32,16 @@ def get_db():
     finally:
         db.close()
 
+    # добавление названия лекарства
+@app.post("/addMedicineName", status_code=status.HTTP_201_CREATED)
+async def add_medicine_name(add_medicine_name_request: AddMedicineNameRequest, db: Session = Depends(get_db)):
+    new_medicine = MedicineDictionary(name=add_medicine_name_request.name)
+    db.add(new_medicine)
+    db.commit()
+    db.refresh(new_medicine)
+    return new_medicine
+
+    # авторизация
 @app.post("/login", status_code=status.HTTP_200_OK)
 async def login(user_login: UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.login == user_login.login, User.password == user_login.password).first()
@@ -45,20 +55,41 @@ async def login(user_login: UserLogin, db: Session = Depends(get_db)):
         "genderId": db_user.genderId
     }
 
+    # регистрация
 @app.post("/register", response_model=UserReg, status_code=status.HTTP_201_CREATED)
 def create_user(user: UserReg, db: Session = Depends(get_db)):
+    logger.info(f"Attempting to register user with login: {user.login}")
+
+    # Проверка логина
+    if not user.login:
+        logger.warning("Login is empty")
+        raise HTTPException(status_code=400, detail="Login cannot be empty")
+
+    # Проверка пароля
+    if not user.password:
+        logger.warning("Password is empty")
+        raise HTTPException(status_code=400, detail="Password cannot be empty")
+
+    # Проверка гендера (если гендер не обязателен, можно пропустить)
+    if user.genderId is not None and user.genderId < 0:
+        logger.warning(f"Invalid genderId: {user.genderId}")
+        raise HTTPException(status_code=400, detail="Invalid genderId")
+
     db_user = db.query(User).filter(User.login == user.login).first()
     if db_user:
+        logger.warning(f"Login already registered: {user.login}")
         raise HTTPException(status_code=400, detail="Login already registered")
 
     try:
-        new_user = User(login=user.login, password=user.password, genderId=user.genderId)  # Пароль хранится в открытом виде!
+        new_user = User(login=user.login, password=user.password, genderId=user.genderId)
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
+        logger.info(f"User registered successfully: {user.login}")
         return new_user
     except exc.IntegrityError as e:
         db.rollback()
+        logger.error(f"Database error: {e}")
         raise HTTPException(status_code=400, detail=f"Database error: {e}")
 
 '''@app.post("/add_medicine/", response_model=AddMedicineRequest, status_code=201)
@@ -80,7 +111,7 @@ def add_medicine(medicine: AddMedicineRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Server error: {e}")'''
 
 
-@app.post("/add_medicine_name/", status_code=201)
+'''@app.post("/add_medicine_name/", status_code=201)
 def add_medicine_name(medicine_name: AddMedicineNameRequest, db: Session = Depends(get_db)):
     try:
         new_medicine_name = MedicineDictionary(name=medicine_name.name)
@@ -90,7 +121,7 @@ def add_medicine_name(medicine_name: AddMedicineNameRequest, db: Session = Depen
         return {"message": "Название лекарства добавлено", "id": new_medicine_name.id}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Ошибка сервера: {e}")
+        raise HTTPException(status_code=500, detail=f"Ошибка сервера: {e}")'''
 
 '''@app.post("/medicines/", response_model=dict, status_code=201)
 async def create_medicine(medicine: MedicineCreate, db: SessionLocal = Depends(get_db)):
