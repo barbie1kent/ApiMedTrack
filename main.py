@@ -77,9 +77,9 @@ async def add_medicine_storage_location(add_medicine_storage_location_request: A
 
 @app.post("/addMedicinePeriod", status_code=status.HTTP_201_CREATED)
 async def add_medicine_period(add_medicine_period_request: AddMedicinePeriodRequest, db: Session = Depends(get_db)):
-    new_medicine_period = Medicine(
+    new_medicine_period = MedicineSchedule(
         period=add_medicine_period_request.period,
-        time=add_medicine_period_request.time,
+        takingTime=add_medicine_period_request.time,
         dose=add_medicine_period_request.dose
     )
     db.add(new_medicine_period)
