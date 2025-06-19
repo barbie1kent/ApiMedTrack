@@ -34,12 +34,66 @@ class MedicineRequest(BaseModel):
     storageLocation: str
     info: str
 
+class AddMedicineFrequencyRequest(BaseModel):
+    frequency: str
+
+class AddMedicinePeriodRequest(BaseModel):
+    period: str
+    time: str
+    dose: str
+
+class AddMedicineStorageLocationRequest(BaseModel):
+    storageLocation: str
+
+class AddMedicineInfoRequest(BaseModel):
+    info: str
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+@app.post("/addMedicineInfo", status_code=status.HTTP_201_CREATED)
+async def add_medicine_info(add_medicine_info_request: AddMedicineInfoRequest, db: Session = Depends(get_db)):
+    new_medicine_info = Medicine(
+        additionalInformation=add_medicine_info_request.info
+    )
+    db.add(new_medicine_info)
+    db.commit()
+    db.refresh(new_medicine_info)
+    return new_medicine_info
+
+@app.post("/addMedicineStorageLocation", status_code=status.HTTP_201_CREATED)
+async def add_medicine_storage_location(add_medicine_storage_location_request: AddMedicineStorageLocationRequest, db: Session = Depends(get_db)):
+    new_medicine_storage_location = Medicine(
+        storageLocation=add_medicine_storage_location_request.storageLocation
+    )
+    db.add(new_medicine_storage_location)
+    db.commit()
+    db.refresh(new_medicine_storage_location)
+    return new_medicine_storage_location
+
+@app.post("/addMedicinePeriod", status_code=status.HTTP_201_CREATED)
+async def add_medicine_period(add_medicine_period_request: AddMedicinePeriodRequest, db: Session = Depends(get_db)):
+    new_medicine_period = Medicine(
+        period=add_medicine_period_request.period,
+        time=add_medicine_period_request.time,
+        dose=add_medicine_period_request.dose
+    )
+    db.add(new_medicine_period)
+    db.commit()
+    db.refresh(new_medicine_period)
+    return new_medicine_period
+
+@app.post("/addMedicineFrequency", status_code=status.HTTP_201_CREATED)
+async def add_medicine_frequency(add_medicine_frequency_request: AddMedicineFrequencyRequest, db: Session = Depends(get_db)):
+    new_medicine_frequency = ReseptionRate(rate=add_medicine_frequency_request.frequency)
+    db.add(new_medicine_frequency)
+    db.commit()
+    db.refresh(new_medicine_frequency)
+    return new_medicine_frequency
 
 # добавление лекарства
 @app.post("/addMedicine", status_code=status.HTTP_201_CREATED)
