@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import joinedload
 from sqlalchemy import create_engine, text, exc
-from datetime import time
+from datetime import time, date, datetime
 
 
 SessionLocal = sessionmaker(engine, expire_on_commit=False)
