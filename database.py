@@ -1,6 +1,8 @@
-from sqlalchemy import create_engine, text, exc
-from sqlalchemy.orm import sessionmaker, relationship, DeclarativeBase
-from sqlalchemy import Column, Integer, String, Numeric, ForeignKey, Time
+from sqlalchemy import Column, Integer, String, Float, Time, Date, DateTime, ForeignKey, Boolean, CheckConstraint
+from sqlalchemy.orm import relationship, declarative_base, sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine
+from datetime import datetime
 
 class Base(DeclarativeBase):
     pass
@@ -9,82 +11,75 @@ class Gender(Base):
     __tablename__ = 'gender'
 
     id = Column(Integer, primary_key=True, index=True)
-    userGender = Column(String(15), nullable=False)
+    name = Column(String(10), nullable=False)
 
     users = relationship("User", back_populates="gender")
 
-class ReseptionRate(Base):
-    __tablename__ = 'reseptionRate'
-
-    id = Column(Integer, primary_key=True, index=True)
-    rate = Column(String, nullable=False)
-
-    medicines = relationship("Medicine", back_populates="reseptionRate")
 
 class User(Base):
     __tablename__ = 'user'
 
     id = Column(Integer, primary_key=True, index=True)
-    login = Column(String(20), nullable=False)
-    password = Column(String(10), nullable=False)
-    genderId = Column(Integer, ForeignKey('gender.id'), nullable=False)
+    login = Column(String(50), unique=True, nullable=False)
+    password_hash = Column(String(100), nullable=False)
+    gender_id = Column(Integer, ForeignKey('gender.id'))
 
-    gender = relationship("Gender", back_populates = "users")
-    medicines = relationship("Medicine", back_populates = "user")
-    medicineSchedules = relationship("MedicineSchedule", back_populates = "user")
+    gender = relationship("Gender", back_populates="users")
+    medicines = relationship("Medicine", back_populates="user")
+    reminders = relationship("Reminder", back_populates="user")
+
 
 class Medicine(Base):
     __tablename__ = 'medicine'
 
     id = Column(Integer, primary_key=True, index=True)
-    dose = Column(String(30), nullable=False)
-    reseptionRateId = Column(Integer, ForeignKey('reseptionRate.id'), nullable=False)
-    takingTime = Column(Time, nullable=False)
-    storageLocation = Column(String(30), nullable=False)
-    additionalInformation = Column(String(100), nullable=False)
-    medicineDictionaryId = Column(Integer, ForeignKey('medicineDictionary.id'), nullable=False)
-    userId = Column(Integer, ForeignKey('user.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(String(255))
+    storage_place = Column(String(100))
+    dosage_description = Column(String(100))  # Например: "1 таблетка после еды"
+    total_stock = Column(Float)  # Оставшееся количество
+    unit = Column(String(20))  # Например: "таблетки", "мл"
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    reseptionRate = relationship("ReseptionRate", back_populates = "medicines")
-    user = relationship("User", back_populates = "medicines")
-    medicineDictionary = relationship("MedicineDictionary", back_populates= "medicines")
-    medicineSchedules = relationship("MedicineSchedule", back_populates= "medicine")
+    user = relationship("User", back_populates="medicines")
+    reminders = relationship("Reminder", back_populates="medicine")
 
-class MedicineSchedule(Base):
-    __tablename__ = 'medicineSchedule'
 
-    id = Column(Integer, primary_key=True, index=True)
-    dose = Column(Numeric(10, 2), nullable=False)
-    takingTime = Column(Time, nullable=False)
-    frequency = Column(String(10), nullable=False)
-    userId = Column(Integer, ForeignKey('user.id'), nullable=False)
-    medicineId = Column(Integer, ForeignKey('medicine.id'), nullable=False)
-    unitMeasurementId = Column(Integer, ForeignKey('unitMeasurement.id'), nullable=False)
-
-    user = relationship("User", back_populates="medicineSchedules")
-    medicine = relationship("Medicine", back_populates="medicineSchedules")
-    unitMeasurement = relationship("UnitMeasurement", back_populates="medicineSchedules")
-
-class UnitMeasurement(Base):
-    __tablename__ = 'unitMeasurement'
+class Reminder(Base):
+    __tablename__ = 'reminder'
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(20), nullable=False)
+    medicine_id = Column(Integer, ForeignKey('medicine.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date)
+    time = Column(Time, nullable=False)
+    frequency = Column(Integer, nullable=False, default=1)  # Сколько раз в день
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-    medicineSchedules = relationship("MedicineSchedule", back_populates="unitMeasurement")
+    __table_args__ = (
+        CheckConstraint(frequency >= 1, name='check_frequency_positive'),
+    )
 
-class MedicineDictionary(Base):
-    __tablename__ = 'medicineDictionary'
+    medicine = relationship("Medicine", back_populates="reminders")
+    user = relationship("User", back_populates="reminders")
+    doses_taken = relationship("DoseTaken", back_populates="reminder")
+
+
+class DoseTaken(Base):
+    __tablename__ = 'dose_taken'
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(50), nullable=False)
+    reminder_id = Column(Integer, ForeignKey('reminder.id'), nullable=False)
+    taken_at = Column(DateTime, default=datetime.utcnow)
 
-    medicines = relationship("Medicine", back_populates="medicineDictionary")
+    reminder = relationship("Reminder", back_populates="doses_taken")
 
 
 engine = create_engine("postgresql://danya:t5IyUzFi4vvh8LMWubhYsF7WkmoqnpFV@dpg-d0r1nq7diees73booqng-a.frankfurt-postgres.render.com/rendermedtrack", echo=True)
 
 
 Base.metadata.create_all(bind=engine)
-
-
