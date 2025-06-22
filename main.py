@@ -3,11 +3,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from typing import List
 from database import *
 from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import joinedload
 from sqlalchemy import create_engine, text, exc
 from datetime import time, date, datetime
-
+from typing import Optional
 
 SessionLocal = sessionmaker(engine, expire_on_commit=False)
 
@@ -23,25 +23,49 @@ class UserRegister(BaseModel):
     password: str
     gender_id: int
 
-
-class MedicineCreate(BaseModel):
+class FullMedicineReminderCreate(BaseModel):
     name: str
-    dosage_description: str
-    storage_place: str | None = None
-    total_stock: float | None = None
-    unit: str | None = None
-
-
-class ReminderCreate(BaseModel):
-    medicine_id: int
+    amount: float
+    unit: str
     start_date: date
     end_date: date | None = None
-    time: time
-    frequency: int = 1  # По умолчанию один раз в день
+    time: str  # Формат "HH:MM"
+    storage_place: str | None = None
+    description: str | None = None
+    total_stock: float | None = None
+
+    @classmethod
+    def validate_time(cls, v):
+        if not v:
+            return v
+        try:
+            hours, minutes = map(int, v.split(':'))
+            return f"{hours:02}:{minutes:02}"
+        except ValueError:
+            raise ValueError("Time must be in format 'HH:MM'")
+
+class FullMedicineReminderUpdate(BaseModel):
+    name: Optional[str] = None
+    amount: Optional[float] = None
+    unit: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    time: Optional[str] = None
+    storage_place: Optional[str] = None
+    description: Optional[str] = None
+    total_stock: Optional[float] = None
 
 
-class DoseTakenCreate(BaseModel):
-    reminder_id: int
+class FullMedicineReminderUpdate(BaseModel):
+    name: Optional[str] = None
+    amount: Optional[float] = None
+    unit: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    time: Optional[str] = None  # Формат "HH:MM"
+    storage_place: Optional[str] = None
+    description: Optional[str] = None
+    total_stock: Optional[float] = None
 
 def get_db():
     db = SessionLocal()
@@ -77,7 +101,7 @@ async def register(user: UserRegister, db: Session = Depends(get_db)):
 
     new_user = User(
         login=user.login,
-        password_hash=user.password,  # В реальности здесь должен быть хэш
+        password=user.password,
         gender_id=user.gender_id
     )
     db.add(new_user)
@@ -86,80 +110,122 @@ async def register(user: UserRegister, db: Session = Depends(get_db)):
 
     return {"message": "User created successfully", "user": {"id": new_user.id, "login": new_user.login}}
 
-@app.post("/medicines", status_code=status.HTTP_201_CREATED)
-async def create_medicine(medicine_data: MedicineCreate, db: Session = Depends(get_db)):
-    # TODO: добавить авторизацию и привязку к пользователю
-    new_medicine = Medicine(**medicine_data.dict())
+# Лекарства
+@app.post("/users/{user_id}/medicine-reminder", status_code=status.HTTP_201_CREATED)
+async def create_full_medicine_reminder(
+    user_id: int,
+    data: FullMedicineReminderCreate,
+    db: Session = Depends(get_db)
+):
+    # Создаем лекарство
+    new_medicine = Medicine(
+        user_id=user_id,
+        name=data.name,
+        amount=data.amount,
+        unit=data.unit,
+        storage_place=data.storage_place,
+        total_stock=data.total_stock,
+        description=data.description
+    )
     db.add(new_medicine)
     db.commit()
     db.refresh(new_medicine)
-    return new_medicine
 
-
-@app.get("/medicines", response_model=list[MedicineCreate])
-async def get_medicines(db: Session = Depends(get_db)):
-    return db.query(Medicine).all()
-
-
-@app.get("/medicines/{medicine_id}")
-async def get_medicine(medicine_id: int, db: Session = Depends(get_db)):
-    medicine = db.query(Medicine).get(medicine_id)
-    if not medicine:
-        raise HTTPException(status_code=404, detail="Medicine not found")
-    return medicine
-
-
-# === НАПОМИНАНИЯ ===
-
-@app.post("/reminders", status_code=status.HTTP_201_CREATED)
-async def create_reminder(reminder_data: ReminderCreate, db: Session = Depends(get_db)):
-    # Проверяем, существует ли лекарство
-    medicine = db.query(Medicine).get(reminder_data.medicine_id)
-    if not medicine:
-        raise HTTPException(status_code=404, detail="Medicine not found")
-
-    new_reminder = Reminder(**reminder_data.dict())
+    # Создаем напоминание
+    new_reminder = Reminder(
+        medicine_id=new_medicine.id,
+        start_date=data.start_date,
+        end_date=data.end_date,
+        time=data.time,
+        frequency=1  # Заглушка, можно позже сделать выбор частоты
+    )
     db.add(new_reminder)
     db.commit()
     db.refresh(new_reminder)
-    return new_reminder
-
-
-@app.get("/reminders")
-async def get_reminders(db: Session = Depends(get_db)):
-    return db.query(Reminder).filter(Reminder.is_active == True).all()
-
-
-# === ПРИЁМ ЛЕКАРСТВ ===
-
-@app.post("/dose-taken", status_code=status.HTTP_201_CREATED)
-async def mark_dose_taken(data: DoseTakenCreate, db: Session = Depends(get_db)):
-    reminder = db.query(Reminder).get(data.reminder_id)
-    if not reminder:
-        raise HTTPException(status_code=404, detail="Reminder not found")
-
-    dose_taken = DoseTaken(reminder_id=data.reminder_id)
-    db.add(dose_taken)
-    db.commit()
-    db.refresh(dose_taken)
-
-    # Обновляем остатки лекарства
-    if reminder.medicine.total_stock > 0:
-        reminder.medicine.total_stock -= 1
-        db.commit()
-
-    return dose_taken
-
-
-@app.get("/stock/{medicine_id}")
-async def get_stock(medicine_id: int, db: Session = Depends(get_db)):
-    medicine = db.query(Medicine).get(medicine_id)
-    if not medicine:
-        raise HTTPException(status_code=404, detail="Medicine not found")
 
     return {
-        "medicine_id": medicine_id,
-        "name": medicine.name,
-        "total_stock": medicine.total_stock,
-        "unit": medicine.unit
+        "message": "Лекарство и напоминание созданы",
+        "medicine": new_medicine,
+        "reminder": new_reminder
     }
+
+# обновление
+@app.put("/users/{user_id}/medicine-reminder/{medicine_id}", status_code=200)
+async def update_full_medicine_reminder(
+    user_id: int,
+    medicine_id: int,
+    data: FullMedicineReminderUpdate,
+    db: Session = Depends(get_db)
+):
+    # Ищем лекарство по ID и проверяем, принадлежит ли пользователю
+    medicine = db.query(Medicine).filter(Medicine.id == medicine_id, Medicine.user_id == user_id).first()
+    if not medicine:
+        raise HTTPException(status_code=404, detail="Лекарство не найдено или не принадлежит вам")
+
+    reminder = db.query(Reminder).filter(Reminder.medicine_id == medicine_id).first()
+    if not reminder:
+        raise HTTPException(status_code=404, detail="Напоминание не найдено")
+
+    # Обновляем только те поля, которые переданы
+    for key, value in data.dict(exclude_unset=True).items():
+        if hasattr(medicine, key):
+            setattr(medicine, key, value)
+        if hasattr(reminder, key):
+            setattr(reminder, key, value)
+
+    db.commit()
+    db.refresh(medicine)
+    db.refresh(reminder)
+
+    return {
+        "message": "Данные успешно обновлены",
+        "medicine": medicine,
+        "reminder": reminder
+    }
+
+# удаление
+@app.delete("/users/{user_id}/medicine-reminder/{medicine_id}", status_code=200)
+async def delete_full_medicine_reminder(
+    user_id: int,
+    medicine_id: int,
+    db: Session = Depends(get_db)
+):
+    # Проверяем, что лекарство принадлежит пользователю
+    medicine = db.query(Medicine).filter(Medicine.id == medicine_id, Medicine.user_id == user_id).first()
+    if not medicine:
+        raise HTTPException(status_code=404, detail="Лекарство не найдено или не принадлежит вам")
+
+    # Мягкое удаление напоминаний
+    reminders = db.query(Reminder).filter(Reminder.medicine_id == medicine_id).all()
+    if not reminders:
+        raise HTTPException(status_code=404, detail="Напоминания не найдены")
+
+    for r in reminders:
+        r.is_active = False
+
+    db.commit()
+
+    return {"message": "Напоминания удалены (мягкое удаление)"}
+
+# получение карточек
+@app.get("/users/{user_id}/medicine-cards", status_code=200)
+async def get_all_medicine_cards(user_id: int, db: Session = Depends(get_db)):
+    medicines = db.query(Medicine).filter(Medicine.user_id == user_id).all()
+    if not medicines:
+        raise HTTPException(status_code=404, detail="Карточки не найдены")
+
+    result = []
+    for med in medicines:
+        reminder = db.query(Reminder).filter(Reminder.medicine_id == med.id).first()
+        if reminder and reminder.is_active:
+            result.append({
+                "medicine_id": med.id,
+                "name": med.name,
+                "amount": med.amount,
+                "unit": med.unit,
+                "time": reminder.time,
+                "total_stock": med.total_stock,
+                "storage_place": med.storage_place
+            })
+
+    return result
