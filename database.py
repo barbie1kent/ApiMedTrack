@@ -79,7 +79,7 @@ class DoseTaken(Base):
     reminder = relationship("Reminder", back_populates="doses_taken")
 
 
-engine = create_engine("postgresql://medtrack_2nwj_user:ZqnGg1ZjJsijJYQQbwjGwJHRci9rF5FX@dpg-d1c15sidbo4c73cfk3rg-a.frankfurt-postgres.render.com/medtrack_2nwj", echo=True)
+engine = create_engine("postgresql://medtrack_zcin_user:l2iSQI98ftDNXLERcN4GwAIvVp50Qh64@dpg-d1c2ko3e5dus73f4lpu0-a.frankfurt-postgres.render.com/medtrack_zcin", echo=True)
 
 
 Base.metadata.create_all(bind=engine)
