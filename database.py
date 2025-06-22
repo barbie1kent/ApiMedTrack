@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, Time, Date, DateTime, ForeignKey, Boolean, CheckConstraint
-from sqlalchemy.orm import relationship, declarative_base, sessionmaker
+from sqlalchemy.orm import relationship, DeclarativeBase, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text, exc
 from datetime import datetime
 
 class Base(DeclarativeBase):
