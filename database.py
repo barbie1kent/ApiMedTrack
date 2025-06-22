@@ -32,14 +32,14 @@ class User(Base):
 class Medicine(Base):
     __tablename__ = 'medicine'
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
     name = Column(String(100), nullable=False)
     description = Column(String(255))
     storage_place = Column(String(100))
-    dosage_description = Column(String(100))  # Например: "1 таблетка после еды"
+    amount = Column(Float)  # Количество препарата
+    unit = Column(String(20))  # Единица измерения (таблетки, мл и т.д.)
     total_stock = Column(Float)  # Оставшееся количество
-    unit = Column(String(20))  # Например: "таблетки", "мл"
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
