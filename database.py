@@ -21,7 +21,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     login = Column(String(50), unique=True, nullable=False)
-    password_hash = Column(String(100), nullable=False)
+    password = Column(String(100), nullable=False)
     gender_id = Column(Integer, ForeignKey('gender.id'))
 
     gender = relationship("Gender", back_populates="users")
@@ -79,7 +79,7 @@ class DoseTaken(Base):
     reminder = relationship("Reminder", back_populates="doses_taken")
 
 
-engine = create_engine("postgresql://medtrack_zcin_user:l2iSQI98ftDNXLERcN4GwAIvVp50Qh64@dpg-d1c2ko3e5dus73f4lpu0-a.frankfurt-postgres.render.com/medtrack_zcin", echo=True)
+engine = create_engine("postgresql://medtrack_t2oh_user:0mKKVcwdqFndUfE8e1FHB9i3L6eZBXQK@dpg-d1caigbe5dus73fc9a40-a.frankfurt-postgres.render.com/medtrack_t2oh", echo=True)
 
 
 Base.metadata.create_all(bind=engine)
